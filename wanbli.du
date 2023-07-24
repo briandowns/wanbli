@@ -1,0 +1,473 @@
+import Base64;
+import Datetime;
+import Hashlib;
+import HTTP;
+import JSON;
+import Socket;
+import System;
+
+from "logger.du" import Log;
+
+class Route {
+    var middleware = [];
+
+    init(var verb, var route, var callback) {}
+
+    setMiddleware(mw) {
+        this.middleware.push(mw);
+    }
+}
+
+const statusCodes = {
+    // 2xx
+    HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
+    HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
+    // 3xx
+    301: "moved Permanently",
+    // 4xx
+    400: "bad Request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not Found",
+    // 5xx
+    500: "internal Server Error"
+};
+
+
+// Request
+class Request {
+    init(data) {
+        const rawData = data.split("\r\n\r\n");
+        const headers = rawData[0].split("\r\n");
+        const body = rawData[1];
+        
+        const routeData = headers[0].split(" ");
+
+        this.verb = routeData[0];
+        
+        this.headers = {};
+        this.body = {};
+        this.start = System.clock();
+
+        this.parseUrl(routeData[1]);
+        this.parseHeaders(headers);
+
+        if (this.headers.get("Content-Type", "") == "application/x-www-form-urlencoded" and body != "") {
+            this.parseBody(body);
+        }
+    }
+
+    parseUrl(route) {
+        this.query = {};
+
+        const url = route.split("?");
+        this.route = url[0];
+
+        // No query parameters
+        if (url.len() == 1) {
+            return;
+        }
+
+        const parameters = url[1].split("&");
+
+        parameters.forEach(def (parameter) => {
+            const variable = parameter.split("=");
+
+            if (variable.len() == 2) {
+                this.query[variable[0]] = variable[1];
+            } else {
+                this.query[variable[0]] = nil;
+            }
+        });
+    }
+
+    parseHeaders(headers) {
+        for (var i = 1; i < headers.len(); i += 1) {
+            const headerData = headers[i].split(":");
+            this.headers[headerData[0]] = headerData[1].strip();
+        }
+    }
+
+    parseBody(body) {
+        body.split("&").forEach(def (element) => {
+            const variable = element.split("=");
+            this.body[variable[0]] = variable[1];
+        });
+    }
+}
+
+// BaseResponse
+abstract class BaseResponse {
+    init() {
+        this.headers = {
+            "Server": "Dictu-Server",
+            "Connection": "close",
+            "Content-Type": "text/html"
+        };
+    }
+
+    addHeader(key, value) {
+        this.headers[key] = value;
+    }
+
+    setCookie(value, httpOnly=true, secure=false) {
+        this.headers["Set-Cookie"] = "{}{}{}".format(
+            value,
+            httpOnly ? "; HttpOnly" : "",
+            secure ? "; Secure" : ""
+        );
+    }
+
+    send(client) {
+        var responseHeaders = "HTTP/1.1 {}\r\nDate: {}\r\n"
+            .format(this.status, Datetime.strftime("%a, %d %b %Y %H:%M:%S"));
+        
+        this.headers.keys().forEach(def (key) => {
+            responseHeaders += "{}: {}\r\n".format(key, this.headers[key]);
+        });
+
+        client.write(responseHeaders + "\r\n" + this.content);
+    }
+}
+
+// Response
+class Response < BaseResponse {
+    init(content, status=HTTP.STATUS_CODE_OK) {
+        super.init();
+
+        this.content = content;
+        this.status = status;
+
+        this.headers["Content-Length"] = content.len();
+    }
+}
+
+// JsonResponse
+class JsonResponse < BaseResponse {
+    init(content, status=200) {
+        super.init();
+
+        this.content = JSON.stringify(content).unwrap();
+        this.status = status;
+
+        this.headers["Content-Length"] = this.content.len();
+        this.headers["Content-Type"] = "application/json";
+    }
+}
+
+// ErrorResponse
+class ErrorResponse < BaseResponse {
+    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
+        super.init();
+
+        this.content = content;
+        this.status = statusCodes[status];
+        this.headers["Content-Length"] = content.len();
+    }
+}
+
+// BaseSessionHandler
+abstract class BaseSessionHandler {
+    abstract save(request)
+    abstract load(request)
+}
+
+// Server
+class Server {
+    const HTTP_DELIMITER = "\r\n\r\n";
+
+    // TODO: Investigate why callback can't be private
+    init(var callback, private host="127.0.0.1", private port=8080) {
+        this.socket = nil;
+    }
+
+    start() {
+        const socket = Socket.create(Socket.AF_INET, Socket.SOCK_STREAM);
+        if (not socket.success()) {
+            return socket;
+        }
+
+        this.socket = socket.unwrap();
+        this.socket.setsockopt(Socket.SOL_SOCKET, Socket.SO_REUSEADDR);
+        
+        if (not this.socket.bind(this.host, this.port).success()) {
+            return Error("failed to bind socket");
+        }
+
+        this.listen();
+    }
+
+    listen() {
+        const result = this.socket.listen();
+        if (not result.success()) {
+            return result.unwrapError();
+        }
+        
+        while {
+            const connection = this.socket.accept();
+            if (not connection.success()) {
+                return result.unwrapError();
+            }
+
+            const [client, address] = connection.unwrap();
+            this.handleClient(client, address);
+        }
+    }
+
+    handleClient(client, address) {
+        const data = this.getData(client);
+        if (data != '') {
+            this.callback(client, address, data);
+        }
+        client.close();
+    }
+
+    getData(client, size=2048) {
+        var buffer = client.recv(size);
+
+        if (not buffer.success()) {
+            return result.unwrapError();
+        }
+
+        buffer = buffer.unwrap();
+
+        if (buffer.len() != size) {
+            return buffer;
+        }
+
+        while {
+            const data = client.recv(size);
+
+            if (not data.success()) {
+                return result.unwrapError();
+            }
+
+            buffer += data.unwrap();
+
+            if (buffer.contains(this.HTTP_DELIMITER)) {
+                break;
+            }
+        }
+
+        return buffer;
+    }
+}
+
+// SessionHandler
+class SessionHandler < BaseSessionHandler {
+    init(app) {
+        this.key = app.key;
+
+        app.middleware.insert(this.load, 0);
+    }
+
+    load(request) {
+        const cookie = request.headers.get("Cookie", false);
+        request.session = {};
+        request.sessionCopy = request.session.copy();
+
+        if (cookie and cookie.startsWith("session=")) {
+            const payload = cookie[8:];
+            const [session, base64Hmac] = payload.split(".");
+
+            const decodedSession = Base64.decode(session);
+            const sessionHmac = Hashlib.hmac(this.key, decodedSession, true);
+            
+            // Ensure the cookies signature is correct
+            if (Hashlib.verify(Base64.encode(sessionHmac), base64Hmac)) {
+                const parsedSession = JSON.parse(decodedSession);
+                if (parsedSession.success()) {
+                    request.session = parsedSession.unwrap();
+                } else {
+                    request.session = {};
+                }
+            }
+        }
+    }
+
+    save(session, sessionCopy, response) {
+        // Session updated. Update cookie
+        if (session != sessionCopy) {
+            const stringSessionResult = JSON.stringify(session);
+
+            if (stringSessionResult.success()) {
+                const stringSession = stringSessionResult.unwrap();
+                const base64Session = Base64.encode(stringSession);
+                const base64Hmac = Base64.encode(Hashlib.hmac(this.key, stringSession, true));
+
+                response.setCookie("session={}.{}".format(base64Session, base64Hmac));
+            }
+        }
+    }
+}
+
+// Wanbli 
+class Wanbli {
+    private logger;
+
+    init(host="127.0.0.1", var port=8080) {
+        this.server = Server(this.response, host, port);
+
+        this.routes = {
+            HTTP.METHOD_GET: {},
+            HTTP.METHOD_POST: {},
+            HTTP.METHOD_PUT: {},
+            HTTP.METHOD_DELETE: {},
+            HTTP.METHOD_HEAD: {},
+            HTTP.METHOD_PATCH: {},
+            HTTP.METHOD_CONNECT: {}
+        };
+
+        this.middleware = [];
+        this.sessionHandler = nil;
+
+        this.logger = Log();
+    }
+
+    // start starts the server.
+    start() {
+        this.server.start();
+    }
+
+    logCall(request, response) {
+        this.logger.info("request/response", 
+        {
+            "remote-address": request.headers["Host"],
+            "method": request.verb,
+            "request-uri": request.route,
+            "status": response.status,
+            "user-agent": request.headers["User-Agent"],
+            "duration": (System.clock() - request.start) / 1000000
+        });
+    }
+
+    private send(client, request, response) {
+        this.logCall(request, response);
+        response.send(client);
+    }
+
+    response(client, address, data) {
+        const request = Request(data);
+        var response = Response(data, 0);
+
+        response = this.handleMiddleware(request, response);
+        if (response != nil) {
+            this.send(client, request, response);
+            return;
+        }
+
+        response = this.dispatch(request);
+
+        if (this.sessionHandler != nil) {
+            this.sessionHandler.save(request.session, request.sessionCopy, response);
+        }
+
+        this.send(client, request, response);
+    }
+
+    dispatch(request) {
+        if (this.routes.exists(request.verb)) {
+            if (this.routes[request.verb].exists(request.route)) {
+                var response;
+                var cachable = false;
+                var cache = nil;
+
+                if (this.routes[request.verb][request.route].middleware.len() > 0) {
+                    this.routes[request.verb][request.route].middleware.forEach(def(mw) => {
+                        response = mw.handle(request, response);
+
+                        if (response != nil) {
+                            return Response(response);
+                        }
+                    });
+                }
+
+                response = this.routes[request.verb][request.route].callback(request);
+
+                if (type(response) == "string") {
+                    response = Response(response);
+                } else if (["list", "number", "nil", "bool", "dict"].contains(type(response))) {
+                    response = JsonResponse(response);
+                }
+
+                return response;
+            }
+        }
+
+        return this.notFoundHandler(request);
+    }
+
+    notFoundHandler(request) {
+        return ErrorResponse(HTTP.STATUS_MESSAGE_NOT_FOUND, HTTP.STATUS_CODE_NOT_FOUND);
+    }
+
+    private handleMiddleware(request, res) {
+        for (var i = 0; i < this.middleware.len(); i += 1) {
+            const response = this.middleware[i].handle(request, res);
+            if (response != nil) {
+                return response;
+            }
+        }
+    }
+
+    addSessionHandler(handler) {
+        this.sessionHandler = handler;
+    }
+
+    addMiddleware(...callback) {
+        callback.forEach(def(c) => this.middleware.push(c));
+    }
+
+    setRoute(route) {
+        this.routes[route.verb][route.route] = route;
+    }
+
+    addController(klass) {
+        const classRef = klass._class;
+        if (classRef.classAnnotations.len() == 0 or not classRef.classAnnotations.exists("Controller")) {
+            return Error("'Controller' class annotation required");
+        }
+
+        const resourcePath = classRef.classAnnotations.get("Controller");
+
+        classRef.methods().forEach(def(m) => {
+            if (m == "init") {
+                return;
+            }
+
+            if (classRef.methodAnnotations.exists(m)) {
+                const annotations = classRef.methodAnnotations[m];
+                
+                var path = resourcePath;
+                var verb = "";
+
+                if (annotations.exists("Path")) {
+                    const uri = annotations.get("Path");
+                    if (path != "") {
+                        path += uri;
+                    }
+                }
+
+                if (annotations.exists("Get")) { 
+                    verb = HTTP.METHOD_GET;
+                } else if (annotations.exists("Post")) { 
+                    verb = HTTP.METHOD_POST;
+                } else if (annotations.exists("Delete")) { 
+                    verb = HTTP.METHOD_DELETE;
+                } else if (annotations.exists("Patch")) { 
+                    verb = HTTP.METHOD_PATCH;
+                } else if (annotations.exists("Connect")) { 
+                    verb = HTTP.METHOD_CONNECT;
+                } else if (annotations.exists("Head")) { 
+                    verb = HTTP.METHOD_HEAD;
+                }                                                 
+
+                var r = Route(verb, path, klass.getAttribute(m));
+
+                this.setRoute(r);
+            }
+        });
+
+        return Success(0);
+    }
+}

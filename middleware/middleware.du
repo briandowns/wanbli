@@ -1,0 +1,5 @@
+// Middleware defines the middleware interface that
+// inhereting classes need to implement.
+abstract class Middleware {
+    abstract handle(request, response)
+}

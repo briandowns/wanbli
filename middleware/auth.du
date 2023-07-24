@@ -1,0 +1,29 @@
+from "middleware.du" import Middleware;
+
+// TokenAuth is a middleware for token based authentication.
+class TokenAuth < Middleware {
+    private token;
+    private authHeaderField;
+
+    init(authHeaderField, token) {
+        this.authHeaderField = authHeaderField;
+        this.token = token;
+    }
+
+    handle(request) {
+        return this.authenticate(request);
+    }
+
+    private authenticate(request) {
+        if (not request.headers.exists(this.authHeaderField)) {
+            return ErrorResponse("invalid authorization header", HTTP.STATUS_BAD_REQUEST);
+        }
+
+        const token = request.headers.get(this.authHeaderField);
+        if (token == "" or token != t.Token) {
+            return ErrorResponse("invalid authorization header", HTTP.STATUS_CODE_UNAUTHORIZED);
+        }
+
+	    return nil;
+    }
+}

@@ -1,0 +1,81 @@
+#!/usr/bin/env dictu
+
+import System;
+
+from "middleware/auth.du" import TokenAuth;
+from "wanbli.du" import Wanbli, SessionHandler,
+                        Response, JsonResponse, ErrorResponse;
+from "logger.du" import Log;
+
+
+@Controller("/api/v1/releases")
+class Releases {
+    private dataStore;
+
+    init(dataStore) {
+        this.dataStore = dataStore;
+    }
+ 
+    @Post
+    new(request) {
+        if (request.query.exists("id")) {
+            const key = request.query.get("id");
+            return {
+                key: this.dataStore.get(key)
+            };
+        }
+
+        return [this.dataStore];
+    }
+
+    @Get
+    retrieve(request) {
+        if (request.query.exists("id")) {
+            const key = request.query.get("id");
+            return {
+                key: this.dataStore.get(key)
+            };
+        }
+        
+        return [this.dataStore];
+    }
+
+    @Get
+    @Path("/last")
+    last(request) {
+        const keys = this.dataStore.keys();
+        const idx = this.dataStore.len()-1;
+        const lastKey = keys[idx];
+
+        return JsonResponse({lastKey: this.dataStore.get(lastKey)});
+    }
+}
+
+{ // main
+    const logger = Log();
+    logger.info("Starting application");
+
+    var dataStore = {
+        "v0.1.0": "https://github.com/briandowns/spinner/releases/tag/v0.1.0",
+        "v0.20.0": "https://github.com/briandowns/spinner/releases/tag/v0.20.0",
+        "v1.1.0": "https://github.com/briandowns/spinner/releases/tag/v1.1.0",
+        "v2.5.0": "https://github.com/briandowns/spinner/releases/tag/v2.5.0"
+    };
+    
+    const wanbli = Wanbli("0.0.0.0", 8080);
+
+    const controllers = [Releases(dataStore)];
+    controllers.forEach(def(c) => {
+        const ret = wanbli.addController(c);
+        if (not ret.success()) {
+            logger.error(ret.unwrapError());
+            System.exit(1);
+        }
+    });
+
+    const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
+
+    wanbli.start();
+
+    System.exit(0);
+}
