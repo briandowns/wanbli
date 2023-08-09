@@ -1,0 +1,56 @@
+import Base64;
+
+
+// BaseSessionHandler
+abstract class BaseSessionHandler {
+    abstract save(request)
+    abstract load(request)
+}
+
+// SessionHandler
+class SessionHandler < BaseSessionHandler {
+    init(app) {
+        this.key = app.key;
+
+        app.middleware.insert(this.load, 0);
+    }
+
+    load(request) {
+        const cookie = request.headers.get("Cookie", false);
+        request.session = {};
+        request.sessionCopy = request.session.copy();
+
+        if (cookie and cookie.startsWith("session=")) {
+            const payload = cookie[8:];
+            const [session, base64Hmac] = payload.split(".");
+
+            const decodedSession = Base64.decode(session);
+            const sessionHmac = Hashlib.hmac(this.key, decodedSession, true);
+            
+            // Ensure the cookies signature is correct
+            if (Hashlib.verify(Base64.encode(sessionHmac), base64Hmac)) {
+                const parsedSession = JSON.parse(decodedSession);
+                if (parsedSession.success()) {
+                    request.session = parsedSession.unwrap();
+                } else {
+                    request.session = {};
+                }
+            }
+        }
+    }
+
+    save(session, sessionCopy, response) {
+        // Session updated. Update cookie
+        if (session != sessionCopy) {
+            const stringSessionResult = JSON.stringify(session);
+
+            if (stringSessionResult.success()) {
+                const stringSession = stringSessionResult.unwrap();
+                const base64Session = Base64.encode(stringSession);
+                const base64Hmac = Base64.encode(Hashlib.hmac(this.key, stringSession, true));
+
+                response.setCookie("session={}.{}".format(base64Session, base64Hmac));
+            }
+        }
+    }
+}

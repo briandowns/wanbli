@@ -52,8 +52,10 @@ class Request {
         this.parseUrl(routeData[1]);
         this.parseHeaders(headers);
 
-        if (this.headers.get("Content-Type", "") == "application/x-www-form-urlencoded" and body != "") {
-            this.parseBody(body);
+        if (this.verb == HTTP.METHOD_POST or this.verb == HTTP.METHOD_PUT or this.verb == HTTP.METHOD_PATCH) {
+            if (this.headers.get("Content-Length") != 0) {
+                this.parseJsonBody(body);
+            }
         }
     }
 
@@ -63,8 +65,8 @@ class Request {
         const url = route.split("?");
         this.route = url[0];
 
-        // No query parameters
         if (url.len() == 1) {
+            // No query parameters
             return;
         }
 
@@ -81,18 +83,22 @@ class Request {
         });
     }
 
-    parseHeaders(headers) {
+    private parseHeaders(headers) {
         for (var i = 1; i < headers.len(); i += 1) {
             const headerData = headers[i].split(":");
             this.headers[headerData[0]] = headerData[1].strip();
         }
     }
 
-    parseBody(body) {
+    private parseBody(body) {
         body.split("&").forEach(def (element) => {
             const variable = element.split("=");
             this.body[variable[0]] = variable[1];
         });
+    }
+
+    private parseJsonBody(body) {
+        this.body = JSON.parse(body).unwrap();
     }
 }
 
@@ -100,7 +106,7 @@ class Request {
 abstract class BaseResponse {
     init() {
         this.headers = {
-            "Server": "Dictu-Server",
+            "Server": "Wanbli-Server",
             "Connection": "close",
             "Content-Type": "text/html"
         };
@@ -166,17 +172,10 @@ class ErrorResponse < BaseResponse {
     }
 }
 
-// BaseSessionHandler
-abstract class BaseSessionHandler {
-    abstract save(request)
-    abstract load(request)
-}
-
 // Server
 class Server {
     const HTTP_DELIMITER = "\r\n\r\n";
 
-    // TODO: Investigate why callback can't be private
     init(var callback, private host="127.0.0.1", private port=8080) {
         this.socket = nil;
     }
@@ -253,54 +252,6 @@ class Server {
     }
 }
 
-// SessionHandler
-class SessionHandler < BaseSessionHandler {
-    init(app) {
-        this.key = app.key;
-
-        app.middleware.insert(this.load, 0);
-    }
-
-    load(request) {
-        const cookie = request.headers.get("Cookie", false);
-        request.session = {};
-        request.sessionCopy = request.session.copy();
-
-        if (cookie and cookie.startsWith("session=")) {
-            const payload = cookie[8:];
-            const [session, base64Hmac] = payload.split(".");
-
-            const decodedSession = Base64.decode(session);
-            const sessionHmac = Hashlib.hmac(this.key, decodedSession, true);
-            
-            // Ensure the cookies signature is correct
-            if (Hashlib.verify(Base64.encode(sessionHmac), base64Hmac)) {
-                const parsedSession = JSON.parse(decodedSession);
-                if (parsedSession.success()) {
-                    request.session = parsedSession.unwrap();
-                } else {
-                    request.session = {};
-                }
-            }
-        }
-    }
-
-    save(session, sessionCopy, response) {
-        // Session updated. Update cookie
-        if (session != sessionCopy) {
-            const stringSessionResult = JSON.stringify(session);
-
-            if (stringSessionResult.success()) {
-                const stringSession = stringSessionResult.unwrap();
-                const base64Session = Base64.encode(stringSession);
-                const base64Hmac = Base64.encode(Hashlib.hmac(this.key, stringSession, true));
-
-                response.setCookie("session={}.{}".format(base64Session, base64Hmac));
-            }
-        }
-    }
-}
-
 // Wanbli 
 class Wanbli {
     private logger;
@@ -337,7 +288,7 @@ class Wanbli {
             "request-uri": request.route,
             "status": response.status,
             "user-agent": request.headers["User-Agent"],
-            "duration": (System.clock() - request.start) / 1000000
+            "duration": (System.clock())
         });
     }
 
@@ -350,12 +301,6 @@ class Wanbli {
         const request = Request(data);
         var response = Response(data, 0);
 
-        response = this.handleMiddleware(request, response);
-        if (response != nil) {
-            this.send(client, request, response);
-            return;
-        }
-
         response = this.dispatch(request);
 
         if (this.sessionHandler != nil) {
@@ -365,12 +310,10 @@ class Wanbli {
         this.send(client, request, response);
     }
 
-    dispatch(request) {
+    private dispatch(request) {
         if (this.routes.exists(request.verb)) {
             if (this.routes[request.verb].exists(request.route)) {
                 var response;
-                var cachable = false;
-                var cache = nil;
 
                 if (this.routes[request.verb][request.route].middleware.len() > 0) {
                     this.routes[request.verb][request.route].middleware.forEach(def(mw) => {
@@ -399,15 +342,6 @@ class Wanbli {
 
     notFoundHandler(request) {
         return ErrorResponse(HTTP.STATUS_MESSAGE_NOT_FOUND, HTTP.STATUS_CODE_NOT_FOUND);
-    }
-
-    private handleMiddleware(request, res) {
-        for (var i = 0; i < this.middleware.len(); i += 1) {
-            const response = this.middleware[i].handle(request, res);
-            if (response != nil) {
-                return response;
-            }
-        }
     }
 
     addSessionHandler(handler) {
@@ -452,6 +386,8 @@ class Wanbli {
                     verb = HTTP.METHOD_GET;
                 } else if (annotations.exists("Post")) { 
                     verb = HTTP.METHOD_POST;
+                } else if (annotations.exists("Put")) {
+                    verb = HTTP.METHOD_PUT;
                 } else if (annotations.exists("Delete")) { 
                     verb = HTTP.METHOD_DELETE;
                 } else if (annotations.exists("Patch")) { 
@@ -462,7 +398,7 @@ class Wanbli {
                     verb = HTTP.METHOD_HEAD;
                 }                                                 
 
-                var r = Route(verb, path, klass.getAttribute(m));
+                const r = Route(verb, path, klass.getAttribute(m));
 
                 this.setRoute(r);
             }

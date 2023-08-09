@@ -1,3 +1,6 @@
+import HTTP;
+
+from "../wanbli.du" import ErrorResponse;
 from "middleware.du" import Middleware;
 
 // TokenAuth is a middleware for token based authentication.
@@ -10,20 +13,33 @@ class TokenAuth < Middleware {
         this.token = token;
     }
 
-    handle(request) {
-        return this.authenticate(request);
+    handle(request, response) {
+        return this.authenticate(request, response);
     }
 
-    private authenticate(request) {
+    private authenticate(request, response) {
         if (not request.headers.exists(this.authHeaderField)) {
-            return ErrorResponse("invalid authorization header", HTTP.STATUS_BAD_REQUEST);
+            return ErrorResponse("invalid authorization header", HTTP.STATUS_CODE_BAD_REQUEST);
         }
 
         const token = request.headers.get(this.authHeaderField);
-        if (token == "" or token != t.Token) {
+        if (token == "" or token != this.authHeaderField) {
             return ErrorResponse("invalid authorization header", HTTP.STATUS_CODE_UNAUTHORIZED);
         }
 
-	    return nil;
+	    return response;
+    }
+}
+
+// BasicAuth is a middleware for basic auth authentication.
+class BasicAuth < Middleware {
+    init() {}
+
+    handle(request, response) {
+        return this.authenticate(request, response);
+    }
+
+    private authenticate(request, response) {
+	    return response;
     }
 }
