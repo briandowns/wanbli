@@ -8,10 +8,16 @@ import System;
 
 from "logger.du" import Log;
 
-class Route {
-    var middleware = [];
+const defaultCacheName = "defaultCache";
 
-    init(var verb, var route, var callback) {}
+class BaseController {
+    init(var cacheEnabled) {}
+}
+
+class Route {
+    init(var verb, var route, var callback) {
+        this.middleware = [];
+    }
 
     setMiddleware(mw) {
         this.middleware.push(mw);
@@ -25,8 +31,8 @@ const statusCodes = {
     // 3xx
     301: "moved Permanently",
     // 4xx
-    400: "bad Request",
-    401: "unauthorized",
+    HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
+    HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
     403: "forbidden",
     404: "not Found",
     // 5xx
@@ -255,24 +261,14 @@ class Server {
 // Wanbli 
 class Wanbli {
     private logger;
+    private middleware; 
 
     init(host="127.0.0.1", var port=8080) {
         this.server = Server(this.response, host, port);
-
-        this.routes = {
-            HTTP.METHOD_GET: {},
-            HTTP.METHOD_POST: {},
-            HTTP.METHOD_PUT: {},
-            HTTP.METHOD_DELETE: {},
-            HTTP.METHOD_HEAD: {},
-            HTTP.METHOD_PATCH: {},
-            HTTP.METHOD_CONNECT: {}
-        };
-
-        this.middleware = [];
-        this.sessionHandler = nil;
-
         this.logger = Log();
+        this.routes = [];
+        this.middleware = {};
+        this.sessionHandler = nil;
     }
 
     // start starts the server.
@@ -311,21 +307,22 @@ class Wanbli {
     }
 
     private dispatch(request) {
-        if (this.routes.exists(request.verb)) {
-            if (this.routes[request.verb].exists(request.route)) {
+        for (var i = 0; i < this.routes.len(); i += 1) {
+            if (this.routes[i].route == request.route and this.routes[i].verb == request.verb) {
                 var response;
 
-                if (this.routes[request.verb][request.route].middleware.len() > 0) {
-                    this.routes[request.verb][request.route].middleware.forEach(def(mw) => {
-                        response = mw.handle(request, response);
-
+                const mwCount = this.routes[i].middleware.len();
+                if (mwCount > 0) {
+                    print("Middlewares for: {} {} {}".format(this.routes[i].route, this.routes[i].verb, this.routes[i].middleware));
+                    for (var j = 0; j < mwCount; j += 1) {
+                        response = this.routes[i].middleware[j].handle(request, response);
                         if (response != nil) {
-                            return Response(response);
+                            return response;
                         }
-                    });
+                    }
                 }
 
-                response = this.routes[request.verb][request.route].callback(request);
+                response = this.routes[i].callback(request);
 
                 if (type(response) == "string") {
                     response = Response(response);
@@ -349,11 +346,11 @@ class Wanbli {
     }
 
     addMiddleware(...callback) {
-        callback.forEach(def(c) => this.middleware.push(c));
+        callback.forEach(def(c) => this.middleware[c._name] = c);
     }
 
     setRoute(route) {
-        this.routes[route.verb][route.route] = route;
+        this.routes.push(route);
     }
 
     addController(klass) {
@@ -364,45 +361,62 @@ class Wanbli {
 
         const resourcePath = classRef.classAnnotations.get("Controller");
 
-        classRef.methods().forEach(def(m) => {
-            if (m == "init") {
-                return;
-            }
+        for (var i = 0; i < classRef.methods().len(); i += 1) {
+            if (classRef.methods()[i] != "init") {
+                if (classRef.methodAnnotations.exists(classRef.methods()[i])) {
+                    const annotations = classRef.methodAnnotations[classRef.methods()[i]];
+                    
+                    var path = resourcePath;
+                    var verb = "";
 
-            if (classRef.methodAnnotations.exists(m)) {
-                const annotations = classRef.methodAnnotations[m];
-                
-                var path = resourcePath;
-                var verb = "";
-
-                if (annotations.exists("Path")) {
-                    const uri = annotations.get("Path");
-                    if (path != "") {
-                        path += uri;
+                    if (annotations.exists("Path")) {
+                        const uri = annotations.get("Path");
+                        if (path != "") {
+                            path += uri;
+                        }
                     }
+
+                    if (annotations.exists("Get")) { 
+                        verb = HTTP.METHOD_GET;
+                    } else if (annotations.exists("Post")) { 
+                        verb = HTTP.METHOD_POST;
+                    } else if (annotations.exists("Put")) {
+                        verb = HTTP.METHOD_PUT;
+                    } else if (annotations.exists("Delete")) { 
+                        verb = HTTP.METHOD_DELETE;
+                    } else if (annotations.exists("Patch")) { 
+                        verb = HTTP.METHOD_PATCH;
+                    } else if (annotations.exists("Connect")) { 
+                        verb = HTTP.METHOD_CONNECT;
+                    } else if (annotations.exists("Head")) { 
+                        verb = HTTP.METHOD_HEAD;
+                    }
+
+                    // if (annotations.exists("Cacheable")) {
+                    //     const cacheName = annotations.get("Cacheable");
+
+                    //     if (not klass.hasAttribute(cacheName)) {
+                    //         klass.setAttribute(cacheName, {});
+                    //     } else {
+                    //         klass.setAttribute(defaultCacheName, {});
+                    //     }
+                    // }
+
+                    var r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
+                    
+                    if (classRef.methodAnnotations[classRef.methods()[i]].exists("Secure")) {
+                        const authType = classRef.methodAnnotations[classRef.methods()[i]].get("Secure");
+
+                        if (authType == "TokenAuth") {
+                            r.middleware.push(this.middleware[authType]);
+                        }
+                    }
+
+                    print("Before Exit: {}".format(r.middleware));
+                    this.setRoute(r);
                 }
-
-                if (annotations.exists("Get")) { 
-                    verb = HTTP.METHOD_GET;
-                } else if (annotations.exists("Post")) { 
-                    verb = HTTP.METHOD_POST;
-                } else if (annotations.exists("Put")) {
-                    verb = HTTP.METHOD_PUT;
-                } else if (annotations.exists("Delete")) { 
-                    verb = HTTP.METHOD_DELETE;
-                } else if (annotations.exists("Patch")) { 
-                    verb = HTTP.METHOD_PATCH;
-                } else if (annotations.exists("Connect")) { 
-                    verb = HTTP.METHOD_CONNECT;
-                } else if (annotations.exists("Head")) { 
-                    verb = HTTP.METHOD_HEAD;
-                }                                                 
-
-                const r = Route(verb, path, klass.getAttribute(m));
-
-                this.setRoute(r);
             }
-        });
+        }
 
         return Success(0);
     }

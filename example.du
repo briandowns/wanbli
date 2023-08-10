@@ -2,16 +2,17 @@
 
 import System;
 
-from "wanbli.du" import Wanbli, Response, JsonResponse, ErrorResponse;
+from "wanbli.du" import Wanbli, BaseController, JsonResponse;
 from "middleware/auth.du" import TokenAuth;
 from "logger.du" import Log;
 
 
 @Controller("/api/v1/releases")
-class Releases {
+class Releases < BaseController {
     private dataStore;
 
     init(dataStore) {
+        super.init(true);
         this.dataStore = dataStore;
     }
  
@@ -28,6 +29,8 @@ class Releases {
     }
 
     @Get
+    @Secure("TokenAuth")
+    @Cacheable("releases")
     retrieve(request) {
         if (request.query.exists("id")) {
             const key = request.query.get("id");
@@ -62,6 +65,8 @@ class Releases {
     };
     
     const wanbli = Wanbli("0.0.0.0", 8080);
+    const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
+    wanbli.addMiddleware(tokenAuth);
 
     const controllers = [Releases(dataStore)];
     controllers.forEach(def(c) => {
@@ -71,9 +76,6 @@ class Releases {
             System.exit(1);
         }
     });
-
-    const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
-    wanbli.addMiddleware(tokenAuth);
     wanbli.start();
 
     System.exit(0);

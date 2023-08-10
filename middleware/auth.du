@@ -23,7 +23,7 @@ class TokenAuth < Middleware {
         }
 
         const token = request.headers.get(this.authHeaderField);
-        if (token == "" or token != this.authHeaderField) {
+        if (token == "" or token != this.token) {
             return ErrorResponse("invalid authorization header", HTTP.STATUS_CODE_UNAUTHORIZED);
         }
 
