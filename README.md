@@ -63,7 +63,28 @@ class Widget {
 
 ## Middleware
 
-Wanbli comes with a number of middlewares and allows users to easily create custom middlwares.
+Wanbli comes with a number of middlewares.
+
+### Authentication
+
+#### Token Auth
+
+To use token authentication on 1 or more of your endpoints, instantiate a new `TokenAuth` value with your preferred header value and token, and then register the middleware with Wanbli.
+
+```js
+const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
+wanbli.addMiddleware(tokenAuth);
+```
+
+To use token authentication on your endpoint, apply the `@Secure("TokenAuth")` annotation with the "TokenAuth" field indication the type of security for the endpoint.
+
+```js
+@Get
+@Secure("TokenAuth")
+retrieve(request) {
+    ...
+}
+```
 
 ## Contributions
 
