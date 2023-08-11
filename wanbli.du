@@ -8,16 +8,8 @@ import System;
 
 from "logger.du" import Log;
 
-class Controller {
-
-    private request;
-    private response;
-
-    init() {}
-}
 
 class Route {
-
     init(var verb, var route, var callback) {
         this.middleware = [];
     }
@@ -316,7 +308,6 @@ class Wanbli {
 
                 const mwCount = this.routes[i].middleware.len();
                 if (mwCount > 0) {
-                    print("Middlewares for: {} {} {}".format(this.routes[i].route, this.routes[i].verb, this.routes[i].middleware));
                     for (var j = 0; j < mwCount; j += 1) {
                         response = this.routes[i].middleware[j].handle(request, response);
                         if (response != nil) {

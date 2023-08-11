@@ -126,7 +126,6 @@ class OrderedDict {
 
 // Cache is a middleware for caching requests.
 class Cache < Middleware {
-
     private store;
 
     init() {

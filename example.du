@@ -8,47 +8,45 @@ from "middleware/cache.du" import Cache;
 from "logger.du" import Log;
 
 
-@Controller("/api/v1/releases")
-class Releases {
-    private dataStore;
+@Controller("/api/v1/books")
+class Books {
+    private store;
 
-    init(dataStore) {
-        this.dataStore = dataStore;
+    init(store) {
+        this.store = store;
     }
  
     @Post
+    @Secure("TokenAuth")
     new(request) {
-        this.dataStore = this.dataStore.merge(request.body);
-        return this.dataStore;
+        this.store = this.store.merge(request.body);
+        return this.store;
     }
 
     @Put
+    @Secure("TokenAuth")
     update(request) {
-        this.dataStore = this.dataStore.merge(request.body);
-        return this.dataStore;
+        this.store = this.store.merge(request.body);
+        return this.store;
     }
 
     @Get
     @Cacheable
-    @Secure("TokenAuth")
     retrieve(request) {
         if (request.query.exists("id")) {
             const key = request.query.get("id");
             return {
-                key: this.dataStore.get(key)
+                key: this.store.get(key)
             };
         }
         
-        return this.dataStore;
+        return {};
     }
 
-    @Get("/last")
-    last(request) {
-        const keys = this.dataStore.keys();
-        const idx = this.dataStore.len()-1;
-        const lastKey = keys[idx];
-
-        return JsonResponse({lastKey: this.dataStore.get(lastKey)});
+    @Get("/all")
+    @Cacheable
+    all(request) {
+        return this.store;
     }
 }
 
@@ -56,19 +54,20 @@ class Releases {
     const logger = Log();
     logger.info("Starting application");
 
-    var dataStore = {
-        "v0.1.0": "https://github.com/briandowns/spinner/releases/tag/v0.1.0",
-        "v0.20.0": "https://github.com/briandowns/spinner/releases/tag/v0.20.0",
-        "v1.1.0": "https://github.com/briandowns/spinner/releases/tag/v1.1.0",
-        "v2.5.0": "https://github.com/briandowns/spinner/releases/tag/v2.5.0"
+    var store = {
+        "0": "The Stranger",
+        "1": "The Martian Chronicles",
+        "2": "1984",
+        "3": "A Universe From Nothing"
     };
     
     const wanbli = Wanbli("0.0.0.0", 8080);
-    const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
+
+    const tokenAuth = TokenAuth("X-Library-Auth", "asdf");
     const cache = Cache();
     wanbli.addMiddleware(tokenAuth, cache);
 
-    const controllers = [Releases(dataStore)];
+    const controllers = [Books(store)];
     controllers.forEach(def(c) => {
         const ret = wanbli.addController(c);
         if (not ret.success()) {
