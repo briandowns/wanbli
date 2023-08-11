@@ -1,0 +1,139 @@
+from "middleware.du" import Middleware;
+
+// OrderedDict
+class OrderedDict {
+    init() {
+        this.dict = {};
+        this.arr = [];
+    }
+
+    // set stores the given key and value.
+    set(key, val) {
+        if (not this.dict.exists(key)) {
+            this.arr.push(key);
+        }
+
+        this.dict[key] = val;
+
+        return this.dict.get(key);
+    }
+
+    // get retrieves the value for the given key.
+    get(key) {
+        return this.dict.get(key);
+    }
+
+    // nth takes the index of the desired entry
+    // and returns that value.
+    nth(idx) {
+        return this.dict.get(this.arr[idx]);
+    }
+
+    // first returns the value associated with the first
+    // key in the dict.
+    first() {
+        return this.dict.get(this.arr[0]);
+    }
+
+    // last returns the value associated with the last
+    // key in the dict.
+    last() {
+        return this.dict[this.arr[this.arr.len()-1]];
+    }
+
+    // exists checks for the exitsence of the given key.
+    exists(key) {
+        this.dict.exists(key);
+    }
+
+    // remove deletes the entry in the store for the given key.
+    remove(key) {
+        for (var i = 0; i < this.arr.len(); i += 1) {
+            if (this.arr[i] == key) {
+                this.arr.remove(i);
+                this.dict.remove(key);
+            }
+        }
+    }
+
+    // insert adds the given value at the given index.
+    insert(idx, key, value) {
+        if (this.arr.findIndex(def(k) => key == k) != nil) {
+            return Error("key already exists");
+        }
+
+        this.arr.splice(idx, 0, key);
+        this.dict[key] = val;
+    }
+
+    // forEach
+    forEach(func) {
+        for (var i = 0; i < this.arr.len(); i += 0) {
+            const key = this.arr[i];
+            const val = this.dict.get(key);
+            func(key, val);
+        }
+    }
+
+    // size returns the size of the store.
+    size() {
+        return this.arr.len();
+    }
+
+    // keys returns a list of the keys in the store.
+    keys() {
+        return this.arr;
+    }
+
+    // firstKey returns the first key in the store.
+    firstKey() {
+        return this.arr[0];
+    }
+
+    // lastKey returns the last key in the store.
+    lastKey() {
+        return this.arr[this.arr.len()-1];
+    }
+
+    // keyAtIdx returns the key for the given index.
+    keyAtIdx(idx) {
+        if (this.arr.len() < idx+1) return "";
+        return this.arr[idx];
+    }
+
+    // values returns a list of all values in the store.
+    values() {
+        var vals = [];
+
+        for (var i = 0; i < this.arr.len(); i += 1) {
+            vals.push(this.dict.get(this.arr[i]));
+        }
+
+        return vals;
+    }
+
+    // clear removes all entries in the store.
+    clear() {
+        this.dict = {};
+        this.arr = [];
+    }
+
+    // clone returns an exact copy of the given store.
+    clone() {
+        return this.deepCopy();
+    }
+}
+
+// Cache is a middleware for caching requests.
+class Cache < Middleware {
+
+    private store;
+
+    init() {
+        this.store = OrderedDict();
+    }
+
+    handle(request, response) {
+        //return this.authenticate(request, response);
+    }
+}

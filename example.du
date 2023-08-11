@@ -2,35 +2,35 @@
 
 import System;
 
-from "wanbli.du" import Wanbli, BaseController, JsonResponse;
+from "wanbli.du" import Wanbli, JsonResponse;
 from "middleware/auth.du" import TokenAuth;
+from "middleware/cache.du" import Cache;
 from "logger.du" import Log;
 
 
 @Controller("/api/v1/releases")
-class Releases < BaseController {
+class Releases {
     private dataStore;
 
     init(dataStore) {
-        super.init(true);
         this.dataStore = dataStore;
     }
  
     @Post
     new(request) {
         this.dataStore = this.dataStore.merge(request.body);
-        return [this.dataStore];
+        return this.dataStore;
     }
 
     @Put
     update(request) {
         this.dataStore = this.dataStore.merge(request.body);
-        return [this.dataStore];
+        return this.dataStore;
     }
 
     @Get
+    @Cacheable
     @Secure("TokenAuth")
-    @Cacheable("releases")
     retrieve(request) {
         if (request.query.exists("id")) {
             const key = request.query.get("id");
@@ -39,11 +39,10 @@ class Releases < BaseController {
             };
         }
         
-        return [this.dataStore];
+        return this.dataStore;
     }
 
-    @Get
-    @Path("/last")
+    @Get("/last")
     last(request) {
         const keys = this.dataStore.keys();
         const idx = this.dataStore.len()-1;
@@ -66,7 +65,8 @@ class Releases < BaseController {
     
     const wanbli = Wanbli("0.0.0.0", 8080);
     const tokenAuth = TokenAuth("X-Wanbli-Auth", "asdf");
-    wanbli.addMiddleware(tokenAuth);
+    const cache = Cache();
+    wanbli.addMiddleware(tokenAuth, cache);
 
     const controllers = [Releases(dataStore)];
     controllers.forEach(def(c) => {

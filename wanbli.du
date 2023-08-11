@@ -8,13 +8,16 @@ import System;
 
 from "logger.du" import Log;
 
-const defaultCacheName = "defaultCache";
+class Controller {
 
-class BaseController {
-    init(var cacheEnabled) {}
+    private request;
+    private response;
+
+    init() {}
 }
 
 class Route {
+
     init(var verb, var route, var callback) {
         this.middleware = [];
     }
@@ -369,38 +372,15 @@ class Wanbli {
                     var path = resourcePath;
                     var verb = "";
 
-                    if (annotations.exists("Path")) {
-                        const uri = annotations.get("Path");
-                        if (path != "") {
-                            path += uri;
+                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head"].forEach(def(v) => {
+                        if (annotations.exists(v)) {
+                            verb = v.upper();
+                            const uri = annotations.get(v);
+                            if (uri) {
+                                path += uri;
+                            }
                         }
-                    }
-
-                    if (annotations.exists("Get")) { 
-                        verb = HTTP.METHOD_GET;
-                    } else if (annotations.exists("Post")) { 
-                        verb = HTTP.METHOD_POST;
-                    } else if (annotations.exists("Put")) {
-                        verb = HTTP.METHOD_PUT;
-                    } else if (annotations.exists("Delete")) { 
-                        verb = HTTP.METHOD_DELETE;
-                    } else if (annotations.exists("Patch")) { 
-                        verb = HTTP.METHOD_PATCH;
-                    } else if (annotations.exists("Connect")) { 
-                        verb = HTTP.METHOD_CONNECT;
-                    } else if (annotations.exists("Head")) { 
-                        verb = HTTP.METHOD_HEAD;
-                    }
-
-                    // if (annotations.exists("Cacheable")) {
-                    //     const cacheName = annotations.get("Cacheable");
-
-                    //     if (not klass.hasAttribute(cacheName)) {
-                    //         klass.setAttribute(cacheName, {});
-                    //     } else {
-                    //         klass.setAttribute(defaultCacheName, {});
-                    //     }
-                    // }
+                    });
 
                     var r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
                     
@@ -412,7 +392,10 @@ class Wanbli {
                         }
                     }
 
-                    print("Before Exit: {}".format(r.middleware));
+                    if (annotations.exists("Cacheable")) {
+                        r.middleware.push(this.middleware["Cache"]);
+                    }
+
                     this.setRoute(r);
                 }
             }

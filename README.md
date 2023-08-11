@@ -53,8 +53,7 @@ class Widget {
         return {};
     }
 
-    @Get
-    @Path("/all")
+    @Get("/all")
     all(request) {
         return this.dataStore;
     }
