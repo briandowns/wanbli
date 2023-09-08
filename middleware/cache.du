@@ -1,4 +1,7 @@
+import Hashlib;
+
 from "middleware.du" import Middleware;
+from "../wanbli.du" import Response;
 
 // OrderedDict
 class OrderedDict {
@@ -66,7 +69,7 @@ class OrderedDict {
         this.dict[key] = val;
     }
 
-    // forEach
+    // forEach iterates over the data with the given function.
     forEach(func) {
         for (var i = 0; i < this.arr.len(); i += 0) {
             const key = this.arr[i];
@@ -133,6 +136,17 @@ class Cache < Middleware {
     }
 
     handle(request, response) {
-        //return this.authenticate(request, response);
+        if (request.verb == HTTP.METHOD_GET) {
+
+        }
+        const reqHash = Hashlib.sha256(request.body.toString());
+        const res = this.store.get(reqHash);
+        print(res);
+        if (not res) {
+            return Response(res);
+        }
+        this.store.set(reqHash, response.body);
+        print("XXX - cache called...");
+        return Response();
     }
 }

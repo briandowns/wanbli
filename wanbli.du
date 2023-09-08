@@ -383,10 +383,6 @@ class Wanbli {
                         }
                     }
 
-                    if (annotations.exists("Cacheable")) {
-                        r.middleware.push(this.middleware["Cache"]);
-                    }
-
                     this.setRoute(r);
                 }
             }

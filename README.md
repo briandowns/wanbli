@@ -1,6 +1,6 @@
 # Wanbli
 
-An small framework for creating simple JSON REST applications for the Dictu programming language.
+A small framework for creating simple JSON REST applications using the Dictu programming language.
 
 Wanbli aims to be as simple as possible. Responses are assumed to be JSON but if it's just a single string returned, the string is returned. Any other datatype gets JSON encoded.
 

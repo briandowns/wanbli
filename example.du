@@ -31,7 +31,6 @@ class Books {
     }
 
     @Get
-    @Cacheable
     retrieve(request) {
         if (request.query.exists("id")) {
             const key = request.query.get("id");
@@ -44,7 +43,6 @@ class Books {
     }
 
     @Get("/all")
-    @Cacheable
     all(request) {
         return this.store;
     }

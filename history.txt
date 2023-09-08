@@ -1,3 +1,0 @@
-def f() {print("thing...");}
-f();
-f(request, response);
