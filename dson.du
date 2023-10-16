@@ -1,15 +1,33 @@
+// module dson is a Dictu module for JSON serialization and deserialization 
+// focusing its functionality around classes.
+
 import JSON;
 import Object;
 import System;
 
 
-const annotationName = "Json";
-const dictuTypes = ["number", "string", "set", "list", "dict"];
+const annotationName = "Json",
+      dictuTypes = [
+        "number",
+        "string",
+        "set",
+        "list",
+        "dict"
+    ];
 
 // Dson provides the ability to convert classes to JSON and 
 // from JSON to a given class.
 class Dson {
     init() {}
+
+    // classFields receives a class and returns a list of the 
+    // fields of the class. Even if no fields have been defined
+    // by the user, an empty list will be returned.
+    private classFields(klass) {
+        return klass
+            .getAttributes()["fields"]
+            .filter(def(field) => field != "_name");
+    }
 
     // parse takes a string and a class instance, parses the string 
     // containing the JSON into a dictionary, and attempts to map
@@ -31,7 +49,7 @@ class Dson {
             return parsed;
         }
 
-        const fields = klass.getAttributes()["fields"].filter(def(field) => field != "_name");
+        const fields = this.classFields(klass);
         const fieldAnnotations = klass._class.fieldAnnotations;
 
         fields.forEach(def(field) => {
@@ -56,7 +74,7 @@ class Dson {
     // processClass will be called recursively on that type with the results being returned 
     // and added to the top level dict.
     private processClass(klass) {
-        const fields = klass.getAttributes()["fields"].filter(def(field) => field != "_name");
+        const fields = this.classFields(klass);
         const fieldAnnotations = klass._class.fieldAnnotations;
 
         var data = {};

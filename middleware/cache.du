@@ -146,7 +146,7 @@ class Cache < Middleware {
             return Response(res);
         }
         this.store.set(reqHash, response.body);
-        print("XXX - cache called...");
+
         return Response();
     }
 }
