@@ -20,9 +20,15 @@ const wanbli = Wanbli("0.0.0.0", 8080);
 
 ## Setup a Controller
 
-Wanbli uses classes, methods, and annotations to drive primary functionality. The example below shows how a class can be configure to handle requests.
+Wanbli uses classes, methods, and annotations to drive primary functionality. Wanbli will automatically take all types, including classes, and return them via JSON encoding. Strings are returned as is. The example below shows how a class can be configure to handle requests.
 
-```js
+```cs
+class ResponseData {
+    var name = "";
+    var age = 0;
+    init(var name, var age) {}
+}
+
 @Controller("/api/v1/widget")
 class Widget {
     init() {
@@ -56,6 +62,11 @@ class Widget {
     @Get("/all")
     all(request) {
         return this.dataStore;
+    }
+
+    @Get("/serialized-class")
+    serializedClass() {
+        return ReturnData("Widget!", 99);
     }
 }
 ```
