@@ -40,7 +40,6 @@ const statusCodes = {
 // request processing.
 class Request {
     init(data) {
-        print(data);
         const rawData = data.split("\r\n\r\n");
         const headers = rawData[0].split("\r\n");
         const body = rawData[1];
@@ -88,7 +87,6 @@ class Request {
     }
 
     private parseHeaders(headers) {
-        print(headers);
         for (var i = 1; i < headers.len(); i += 1) {
             const headerData = headers[i].split(":", 1);
             this.headers[headerData[0]] = headerData[1].strip();
@@ -317,6 +315,18 @@ class Wanbli {
     }
 
     private dispatch(request) {
+        var methodFound = false;
+        for (var i = 0; i < this.routes.len(); i += 1) {
+            if (this.routes[i].verb == request.verb) {
+                methodFound = true;
+                break;
+            }
+        }
+
+        if (not methodFound) {
+            return ErrorResponse(HTTP.STATUS_MESSAGE_METHOD_NOT_ALLOWED, HTTP.STATUS_CODE_METHOD_NOT_ALLOWED);
+        }
+
         for (var i = 0; i < this.routes.len(); i += 1) {
             if (this.routes[i].route == request.route and this.routes[i].verb == request.verb) {
                 var response;
