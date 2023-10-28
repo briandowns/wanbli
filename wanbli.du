@@ -10,15 +10,16 @@ import "dson.du" as dson;
 from "logger.du" import Log;
 
 
-class Route {
-    init(var verb, var route, var callback) {
-        this.middleware = [];
-    }
-
-    setMiddleware(mw) {
-        this.middleware.push(mw);
-    }
-}
+const httpMethodAnnotations = [
+    HTTP.METHOD_GET.lower().title(),
+    HTTP.METHOD_POST.lower().title(),
+    HTTP.METHOD_PUT.lower().title(),
+    HTTP.METHOD_DELETE.lower().title(),
+    HTTP.METHOD_PATCH.lower().title(),
+    HTTP.METHOD_CONNECT.lower().title(),
+    HTTP.METHOD_HEAD.lower().title(),
+    HTTP.METHOD_OPTIONS.lower().title(),
+];
 
 const statusCodes = {
     // 2xx
@@ -34,6 +35,16 @@ const statusCodes = {
     // 5xx
     HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR: HTTP.STATUS_MESSAGE_INTERNAL_SERVER_ERROR
 };
+
+class Route {
+    init(var verb, var route, var callback) {
+        this.middleware = [];
+    }
+
+    setMiddleware(mw) {
+        this.middleware.push(mw);
+    }
+}
 
 
 // Request class is the base for all Wanbli request data and handles
@@ -315,6 +326,7 @@ class Wanbli {
     }
 
     private dispatch(request) {
+        // make sure we have a handler for the requested HTTP method
         var methodFound = false;
         for (var i = 0; i < this.routes.len(); i += 1) {
             if (this.routes[i].verb == request.verb) {
@@ -322,7 +334,6 @@ class Wanbli {
                 break;
             }
         }
-
         if (not methodFound) {
             return ErrorResponse(HTTP.STATUS_MESSAGE_METHOD_NOT_ALLOWED, HTTP.STATUS_CODE_METHOD_NOT_ALLOWED);
         }
@@ -388,7 +399,7 @@ class Wanbli {
                     var path = resourcePath;
                     var verb = "";
 
-                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head", "Options"].forEach(def(v) => {
+                    httpMethodAnnotations.forEach(def(v) => {
                         if (annotations.exists(v)) {
                             verb = v.upper();
                             const uri = annotations.get(v);
