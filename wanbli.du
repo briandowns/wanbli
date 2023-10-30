@@ -87,7 +87,7 @@ class Request {
 
     private parseHeaders(headers) {
         for (var i = 1; i < headers.len(); i += 1) {
-            const headerData = headers[i].split(":");
+            const headerData = headers[i].split(":", 1);
             this.headers[headerData[0]] = headerData[1].strip();
         }
     }
