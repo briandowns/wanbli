@@ -25,20 +25,22 @@ const statusCodes = {
     HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
     HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
     // 3xx
-    301: "moved Permanently",
+    HTTP.STATUS_CODE_MOVED_PERMANENTLY: HTTP.STATUS_MESSAGE_MOVED_PERMANENTLY,
     // 4xx
     HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
     HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
-    403: "forbidden",
-    404: "not Found",
+    HTTP.STATUS_CODE_FORBIDDEN: HTTP.STATUS_MESSAGE_FORBIDDEN,
+    HTTP.STATUS_CODE_NOT_FOUND: HTTP.STATUS_MESSAGE_NOT_FOUND,
     // 5xx
-    500: "internal Server Error"
+    HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR: HTTP.STATUS_MESSAGE_INTERNAL_SERVER_ERROR
 };
 
 
-// Request
+// Request class is the base for all Wanbli request data and handles
+// request processing.
 class Request {
     init(data) {
+        print(data);
         const rawData = data.split("\r\n\r\n");
         const headers = rawData[0].split("\r\n");
         const body = rawData[1];
@@ -68,7 +70,7 @@ class Request {
         this.route = url[0];
 
         if (url.len() == 1) {
-            // No query parameters
+            // no query parameters
             return;
         }
 
@@ -86,6 +88,7 @@ class Request {
     }
 
     private parseHeaders(headers) {
+        print(headers);
         for (var i = 1; i < headers.len(); i += 1) {
             const headerData = headers[i].split(":", 1);
             this.headers[headerData[0]] = headerData[1].strip();
@@ -104,11 +107,12 @@ class Request {
     }
 }
 
-// BaseResponse
+// BaseResponse is the base for all Wanbli responses and extended
+// with functionality and data when inhereted.
 abstract class BaseResponse {
     init() {
         this.headers = {
-            "Server": "Wanbli-Server",
+            "Server": "Wanbli",
             "Connection": "close",
             "Content-Type": "text/html"
         };
@@ -279,15 +283,17 @@ class Wanbli {
     }
 
     logCall(request, response) {
-        this.logger.info("request/response", 
-        {
-            "remote-address": request.headers["Host"],
-            "method": request.verb,
-            "request-uri": request.route,
-            "status": response.status,
-            "user-agent": request.headers["User-Agent"],
-            "duration": (System.clock())
-        });
+        print(request.headers);
+        // this.logger.info("request/response", 
+        // {
+        //     "remote-address": request.headers["Host"],
+        //     "method": request.verb,
+        //     "request-uri": request.route,
+        //     "status": response.status,
+        //     "user-agent": request.headers["User-Agent"],
+        //     "duration": (System.clock()),
+        //     "origin": request.headers["Origin"],
+        // });
     }
 
     private send(client, request, response) {
@@ -370,7 +376,7 @@ class Wanbli {
                     var path = resourcePath;
                     var verb = "";
 
-                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head"].forEach(def(v) => {
+                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head", "Options"].forEach(def(v) => {
                         if (annotations.exists(v)) {
                             verb = v.upper();
                             const uri = annotations.get(v);

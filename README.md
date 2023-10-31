@@ -20,7 +20,7 @@ const wanbli = Wanbli("0.0.0.0", 8080);
 
 ## Setup a Controller
 
-Wanbli uses classes, methods, and annotations to drive primary functionality. Wanbli will automatically take all types, including classes, and return them via JSON encoding. Strings are returned as is. The example below shows how a class can be configure to handle requests.
+Wanbli uses classes, methods, and annotations (case sensitive) to drive primary functionality. Wanbli will automatically take all types, including classes, and return them via JSON encoding. Strings are returned as is. The example below shows how a class can be configure to handle requests.
 
 ```cs
 class ResponseData {
