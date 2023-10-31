@@ -154,6 +154,18 @@ class Response < BaseResponse {
     }
 }
 
+// ErrorResponse
+class ErrorResponse < BaseResponse {
+    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
+        super.init();
+
+        this.content = content;
+        this.status = status;
+
+        this.headers["Content-Length"] = content.len();
+    }
+}
+
 // JsonResponse
 class JsonResponse < BaseResponse {
     init(content, status=200) {
@@ -170,17 +182,6 @@ class JsonResponse < BaseResponse {
 
         this.headers["Content-Length"] = this.content.len();
         this.headers["Content-Type"] = "application/json";
-    }
-}
-
-// ErrorResponse
-class ErrorResponse < BaseResponse {
-    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
-        super.init();
-
-        this.content = content;
-        this.status = statusCodes[status];
-        this.headers["Content-Length"] = content.len();
     }
 }
 
@@ -282,20 +283,21 @@ class Wanbli {
         this.server.start();
     }
 
+    // logCall writes out a log entry to STDOUT with the given fields.
     logCall(request, response) {
-        print(request.headers);
-        // this.logger.info("request/response", 
-        // {
-        //     "remote-address": request.headers["Host"],
-        //     "method": request.verb,
-        //     "request-uri": request.route,
-        //     "status": response.status,
-        //     "user-agent": request.headers["User-Agent"],
-        //     "duration": (System.clock()),
-        //     "origin": request.headers["Origin"],
-        // });
+        this.logger.info("request/response", 
+        {
+            "remote-address": request.headers["Host"],
+            "method": request.verb,
+            "request-uri": request.route,
+            "status": response.status,
+            "user-agent": request.headers["User-Agent"],
+            "duration": (System.clock())
+        });
     }
 
+    // send takes a request and response, logs the call
+    // and sends the response data back to the caller.
     private send(client, request, response) {
         this.logCall(request, response);
         response.send(client);
@@ -341,10 +343,10 @@ class Wanbli {
             }
         }
 
-        return this.notFoundHandler(request);
+        return this.notFoundHandler();
     }
 
-    notFoundHandler(request) {
+    notFoundHandler() {
         return ErrorResponse(HTTP.STATUS_MESSAGE_NOT_FOUND, HTTP.STATUS_CODE_NOT_FOUND);
     }
 

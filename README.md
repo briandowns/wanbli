@@ -12,7 +12,7 @@ Import the framework:
 from "wanbli.du" import Wanbli;
 ```
 
-Initialize the framework by calling the `Wanbli` function. It takes the listening address and port.
+Initialize the framework by calling the `Wanbli` function. It takes the listening address and port. If not no host or port are given, the defaults of "127.0.0.1" and "8080" will be used.
 
 ```js
 const wanbli = Wanbli("0.0.0.0", 8080);
