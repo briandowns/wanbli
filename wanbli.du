@@ -54,11 +54,9 @@ class Request {
         const rawData = data.split("\r\n\r\n");
         const headers = rawData[0].split("\r\n");
         const body = rawData[1];
-        
         const routeData = headers[0].split(" ");
 
         this.verb = routeData[0];
-        
         this.headers = {};
         this.body = {};
         this.start = System.clock();
@@ -398,18 +396,42 @@ class Wanbli {
                     
                     var path = resourcePath;
                     var verb = "";
+                    var r;
 
-                    httpMethodAnnotations.forEach(def(v) => {
-                        if (annotations.exists(v)) {
-                            verb = v.upper();
-                            const uri = annotations.get(v);
+                    annotations.forEach(def(a, val) => {
+                        if (httpMethodAnnotations.contains(a)) {
+                            verb = a.upper();
+
+                            if (a == "Options") {
+                                print("{}".format(val));
+                            }
+
+                            const uri = annotations.get(val);
                             if (uri) {
                                 path += uri;
                             }
+                            // print("XXX - Verb: {}, Path: {}, {}".format(verb, path, klass.getAttribute(classRef.methods()[i])));
+
+                            r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
                         }
                     });
 
-                    var r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
+                    // httpMethodAnnotations.forEach(def(v) => {
+                    //     if (annotations.exists(v)) {
+                    //         verb = v.upper();
+                    //         if (verb == HTTP.METHOD_OPTIONS) {
+                    //             return;
+                    //         }
+
+                    //         const uri = annotations.get(v);
+                    //         if (uri) {
+                    //             path += uri;
+                    //         }
+                    //         print("XXX - Verb: {}, Path: {}, {}".format(verb, path, klass.getAttribute(classRef.methods()[i])));
+
+                    //         r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
+                    //     }
+                    // });
                     
                     if (classRef.methodAnnotations[classRef.methods()[i]].exists("Secure")) {
                         const authType = classRef.methodAnnotations[classRef.methods()[i]].get("Secure");
