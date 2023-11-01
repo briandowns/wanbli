@@ -24,7 +24,6 @@ class Books {
     }
 
     @Put
-    @Options("allowedMethods=put-allowedOrigins=*")
     @Secure("TokenAuth")
     update(request) {
         this.store = this.store.merge(request.body);
@@ -32,6 +31,8 @@ class Books {
     }
 
     @Get
+    //@Options({"allowedMethods": "put", "allowedOrigins": "*"})
+    @Options
     retrieve(request) {
         if (request.query.exists("id")) {
             const key = request.query.get("id");

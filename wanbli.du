@@ -402,15 +402,24 @@ class Wanbli {
                         if (httpMethodAnnotations.contains(a)) {
                             verb = a.upper();
 
-                            if (a == "Options") {
-                                print("{}".format(val));
+                            // if (a == "Options") {
+                            //     //print("{}".format(val));
+                            // } else {
+                            //     const uri = annotations.get(val);
+                            //     if (uri) {
+                            //         path += uri;
+                            //     }
+                            // }
+
+                            if (a != "Options") {
+                                const uri = annotations.get(val);
+                                if (uri) {
+                                    print(uri);
+                                    path += uri;
+                                }
                             }
 
-                            const uri = annotations.get(val);
-                            if (uri) {
-                                path += uri;
-                            }
-                            // print("XXX - Verb: {}, Path: {}, {}".format(verb, path, klass.getAttribute(classRef.methods()[i])));
+                            print("XXX - Verb: {}, Path: {}, {}".format(verb, path, klass.getAttribute(classRef.methods()[i])));
 
                             r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
                         }
