@@ -268,7 +268,7 @@ class Wanbli {
     init(host="127.0.0.1", var port=8080) {
         this.server = Server(this.response, host, port);
         this.logger = Log();
-        this.routes = [];
+        this.routes = {};
         this.middleware = {};
         this.sessionHandler = nil;
     }
@@ -309,30 +309,30 @@ class Wanbli {
     }
 
     private dispatch(request) {
-        for (var i = 0; i < this.routes.len(); i += 1) {
-            if (this.routes[i].route == request.route and this.routes[i].verb == request.verb) {
-                var response;
+        const route = this.routes.get(request.route, false);
 
-                const mwCount = this.routes[i].middleware.len();
-                if (mwCount > 0) {
-                    for (var j = 0; j < mwCount; j += 1) {
-                        response = this.routes[i].middleware[j].handle(request, response);
-                        if (response != nil) {
-                            return response;
-                        }
+        if (route and route.verb == request.verb) {
+            var response;
+
+            const mwCount = route.middleware.len();
+            if (mwCount > 0) {
+                for (var j = 0; j < mwCount; j += 1) {
+                    response = route.middleware[j].handle(request, response);
+                    if (response != nil) {
+                        return response;
                     }
                 }
-
-                response = this.routes[i].callback(request);
-
-                if (type(response) == "string") {
-                    response = Response(response);
-                } else {
-                    response = JsonResponse(response);
-                }
-
-                return response;
             }
+
+            response = route.callback(request);
+
+            if (type(response) == "string") {
+                response = Response(response);
+            } else {
+                response = JsonResponse(response);
+            }
+
+            return response;
         }
 
         return this.notFoundHandler(request);
@@ -351,7 +351,7 @@ class Wanbli {
     }
 
     setRoute(route) {
-        this.routes.push(route);
+        this.routes[route.route] = route;
     }
 
     addController(klass) {
