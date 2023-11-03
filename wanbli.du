@@ -275,7 +275,7 @@ class Wanbli {
 
     // start starts the server.
     start() {
-        this.server.start();
+        return this.server.start();
     }
 
     logCall(request, response) {
