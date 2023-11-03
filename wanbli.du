@@ -10,6 +10,32 @@ import "dson.du" as dson;
 from "logger.du" import Log;
 
 
+const httpMethodAnnotations = [
+    HTTP.METHOD_GET.lower().title(),
+    HTTP.METHOD_POST.lower().title(),
+    HTTP.METHOD_PUT.lower().title(),
+    HTTP.METHOD_DELETE.lower().title(),
+    HTTP.METHOD_PATCH.lower().title(),
+    HTTP.METHOD_CONNECT.lower().title(),
+    HTTP.METHOD_HEAD.lower().title(),
+    HTTP.METHOD_OPTIONS.lower().title(),
+];
+
+const statusCodes = {
+    // 2xx
+    HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
+    HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
+    // 3xx
+    HTTP.STATUS_CODE_MOVED_PERMANENTLY: HTTP.STATUS_MESSAGE_MOVED_PERMANENTLY,
+    // 4xx
+    HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
+    HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
+    HTTP.STATUS_CODE_FORBIDDEN: HTTP.STATUS_MESSAGE_FORBIDDEN,
+    HTTP.STATUS_CODE_NOT_FOUND: HTTP.STATUS_MESSAGE_NOT_FOUND,
+    // 5xx
+    HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR: HTTP.STATUS_MESSAGE_INTERNAL_SERVER_ERROR
+};
+
 class Route {
     init(var verb, var route, var callback) {
         this.middleware = [];
@@ -19,22 +45,6 @@ class Route {
         this.middleware.push(mw);
     }
 }
-
-const statusCodes = {
-    // 2xx
-    HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
-    HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
-    // 3xx
-    301: "moved Permanently",
-    // 4xx
-    HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
-    HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
-    403: "forbidden",
-    404: "not Found",
-    // 5xx
-    500: "internal Server Error"
-};
-
 
 // Request
 class Request {
@@ -150,6 +160,18 @@ class Response < BaseResponse {
     }
 }
 
+// ErrorResponse
+class ErrorResponse < BaseResponse {
+    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
+        super.init();
+
+        this.content = content;
+        this.status = status;
+
+        this.headers["Content-Length"] = content.len();
+    }
+}
+
 // JsonResponse
 class JsonResponse < BaseResponse {
     init(content, status=200) {
@@ -166,17 +188,6 @@ class JsonResponse < BaseResponse {
 
         this.headers["Content-Length"] = this.content.len();
         this.headers["Content-Type"] = "application/json";
-    }
-}
-
-// ErrorResponse
-class ErrorResponse < BaseResponse {
-    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
-        super.init();
-
-        this.content = content;
-        this.status = statusCodes[status];
-        this.headers["Content-Length"] = content.len();
     }
 }
 
@@ -309,6 +320,18 @@ class Wanbli {
     }
 
     private dispatch(request) {
+        // make sure we have a handler for the requested HTTP method
+        var methodFound = false;
+        for (var i = 0; i < this.routes.len(); i += 1) {
+            if (this.routes[i].verb == request.verb) {
+                methodFound = true;
+                break;
+            }
+        }
+        if (not methodFound) {
+            return ErrorResponse(HTTP.STATUS_MESSAGE_METHOD_NOT_ALLOWED, HTTP.STATUS_CODE_METHOD_NOT_ALLOWED);
+        }
+
         for (var i = 0; i < this.routes.len(); i += 1) {
             if (this.routes[i].route == request.route and this.routes[i].verb == request.verb) {
                 var response;
@@ -369,18 +392,39 @@ class Wanbli {
                     
                     var path = resourcePath;
                     var verb = "";
+                    var r;
 
-                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head"].forEach(def(v) => {
-                        if (annotations.exists(v)) {
-                            verb = v.upper();
-                            const uri = annotations.get(v);
-                            if (uri) {
-                                path += uri;
+                    annotations.forEach(def(a, val) => {
+                        if (httpMethodAnnotations.contains(a)) {
+                            verb = a.upper();
+
+                            if (val and (type(val) == "string")) {
+                                path += val;
                             }
+                            if (verb == "OPTIONS") {
+                                r = Route(verb, path, def(response) => {return "hello options!";});
+                                path = resourcePath;
+                                return;
+                            }
+
+                            print("XXX - Verb: {}, Path: {}, {}".format(verb, path, klass.getAttribute(classRef.methods()[i])));
+
+                            r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
+                            path = resourcePath;
                         }
                     });
 
-                    var r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
+                    // ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head"].forEach(def(v) => {
+                    //     if (annotations.exists(v)) {
+                    //         verb = v.upper();
+                    //         const uri = annotations.get(v);
+                    //         if (uri) {
+                    //             path += uri;
+                    //         }
+                    //     }
+                    // });
+
+                    // var r = Route(verb, path, klass.getAttribute(classRef.methods()[i]));
                     
                     if (classRef.methodAnnotations[classRef.methods()[i]].exists("Secure")) {
                         const authType = classRef.methodAnnotations[classRef.methods()[i]].get("Secure");
@@ -393,6 +437,15 @@ class Wanbli {
                     this.setRoute(r);
                 }
             }
+        }
+        print(this.routes.len());
+        for (var i = 0; i < this.routes.len(); i += 1) {
+            print("{} - {}".format(this.routes[i].verb, this.routes[i].route));
+            // if (this.routes[i].verb == "OPTIONS") {
+            //     this.routes[i].callback = def(request) => {
+            //         return "from options request";
+            //     };
+            // }
         }
 
         return Success(0);
