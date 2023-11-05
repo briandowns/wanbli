@@ -73,7 +73,13 @@ class Books {
             System.exit(1);
         }
     });
-    wanbli.start();
+
+    const error = wanbli.start();
+
+    if (error) {
+        print(error.unwrapError());
+        System.exit(1);
+    }
 
     System.exit(0);
 }
