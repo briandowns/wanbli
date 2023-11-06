@@ -10,6 +10,32 @@ import "dson.du" as dson;
 from "logger.du" import Log;
 
 
+const httpMethodAnnotations = [
+    HTTP.METHOD_GET.lower().title(),
+    HTTP.METHOD_POST.lower().title(),
+    HTTP.METHOD_PUT.lower().title(),
+    HTTP.METHOD_DELETE.lower().title(),
+    HTTP.METHOD_PATCH.lower().title(),
+    HTTP.METHOD_CONNECT.lower().title(),
+    HTTP.METHOD_HEAD.lower().title(),
+    HTTP.METHOD_OPTIONS.lower().title(),
+];
+
+const statusCodes = {
+    // 2xx
+    HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
+    HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
+    // 3xx
+    HTTP.STATUS_CODE_MOVED_PERMANENTLY: HTTP.STATUS_MESSAGE_MOVED_PERMANENTLY,
+    // 4xx
+    HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
+    HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
+    HTTP.STATUS_CODE_FORBIDDEN: HTTP.STATUS_MESSAGE_FORBIDDEN,
+    HTTP.STATUS_CODE_NOT_FOUND: HTTP.STATUS_MESSAGE_NOT_FOUND,
+    // 5xx
+    HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR: HTTP.STATUS_MESSAGE_INTERNAL_SERVER_ERROR
+};
+
 class Route {
     init(var verb, var route, var callback) {
         this.middleware = [];
@@ -19,22 +45,6 @@ class Route {
         this.middleware.push(mw);
     }
 }
-
-const statusCodes = {
-    // 2xx
-    HTTP.STATUS_CODE_OK: HTTP.STATUS_MESSAGE_OK,
-    HTTP.STATUS_CODE_CREATED: HTTP.STATUS_MESSAGE_CREATED,
-    // 3xx
-    301: "moved Permanently",
-    // 4xx
-    HTTP.STATUS_CODE_BAD_REQUEST: HTTP.STATUS_MESSAGE_BAD_REQUEST,
-    HTTP.STATUS_CODE_UNAUTHORIZED: HTTP.STATUS_MESSAGE_BAD_REQUEST,
-    403: "forbidden",
-    404: "not Found",
-    // 5xx
-    500: "internal Server Error"
-};
-
 
 // Request
 class Request {
@@ -56,7 +66,9 @@ class Request {
 
         if (this.verb == HTTP.METHOD_POST or this.verb == HTTP.METHOD_PUT or this.verb == HTTP.METHOD_PATCH) {
             if (this.headers.get("Content-Length") != 0) {
-                this.parseJsonBody(body);
+                if (body) {
+                    this.parseJsonBody(body);
+                }
             }
         }
     }
@@ -150,6 +162,18 @@ class Response < BaseResponse {
     }
 }
 
+// ErrorResponse
+class ErrorResponse < BaseResponse {
+    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
+        super.init();
+
+        this.content = content;
+        this.status = status;
+
+        this.headers["Content-Length"] = content.len();
+    }
+}
+
 // JsonResponse
 class JsonResponse < BaseResponse {
     init(content, status=200) {
@@ -166,17 +190,6 @@ class JsonResponse < BaseResponse {
 
         this.headers["Content-Length"] = this.content.len();
         this.headers["Content-Type"] = "application/json";
-    }
-}
-
-// ErrorResponse
-class ErrorResponse < BaseResponse {
-    init(content="", status=HTTP.STATUS_CODE_INTERNAL_SERVER_ERROR) {
-        super.init();
-
-        this.content = content;
-        this.status = statusCodes[status];
-        this.headers["Content-Length"] = content.len();
     }
 }
 
@@ -370,7 +383,7 @@ class Wanbli {
                     var path = resourcePath;
                     var verb = "";
 
-                    ["Get", "Post", "Put", "Delete", "Patch", "Connect", "Head"].forEach(def(v) => {
+                    httpMethodAnnotations.forEach(def(v) => {
                         if (annotations.exists(v)) {
                             verb = v.upper();
                             const uri = annotations.get(v);
