@@ -43,6 +43,7 @@ class Books {
     }
 
     @Get("/all")
+    @Cache
     all(request) {
         return this.store;
     }

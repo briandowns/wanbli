@@ -52,11 +52,9 @@ class Request {
         const rawData = data.split("\r\n\r\n");
         const headers = rawData[0].split("\r\n");
         const body = rawData[1];
-        
         const routeData = headers[0].split(" ");
 
         this.verb = routeData[0];
-        
         this.headers = {};
         this.body = {};
         this.start = System.clock();
@@ -325,19 +323,21 @@ class Wanbli {
         const route = this.routes.get(request.route, false);
 
         if (route and route.verb == request.verb) {
-            var response;
+            var response = Response("");
 
             const mwCount = route.middleware.len();
             if (mwCount > 0) {
-                for (var j = 0; j < mwCount; j += 1) {
-                    response = route.middleware[j].handle(request, response);
+                for (var i = 0; i < mwCount; i += 1) {
+                    response = route.middleware[i].handle(request, response);
                     if (response != nil) {
                         return response;
                     }
-                }
-            }
 
-            response = route.callback(request);
+                    response = route.callback(request);
+                }
+            } else {
+                response = route.callback(request);
+            }
 
             if (type(response) == "string") {
                 response = Response(response);
@@ -401,6 +401,10 @@ class Wanbli {
                         if (authType == "TokenAuth") {
                             r.middleware.push(this.middleware[authType]);
                         }
+                    }
+
+                    if (classRef.methodAnnotations[classRef.methods()[i]].exists("Cache")) {
+                        r.middleware.push(this.middleware["Cache"]);
                     }
 
                     this.setRoute(r);

@@ -1,7 +1,9 @@
 import Hashlib;
+import HTTP;
 
 from "middleware.du" import Middleware;
 from "../wanbli.du" import Response;
+
 
 // OrderedDict
 class OrderedDict {
@@ -136,17 +138,15 @@ class Cache < Middleware {
     }
 
     handle(request, response) {
-        if (request.verb == HTTP.METHOD_GET) {
+        const reqHash = Hashlib.sha256(request.route);
+        print("XXX - {} - {}".format(request.route, reqHash));
 
-        }
-        const reqHash = Hashlib.sha256(request.body.toString());
         const res = this.store.get(reqHash);
-        print(res);
-        if (not res) {
+        if (res != nil) {
+            print("XXX - returning {}".format(res));
             return Response(res);
         }
-        this.store.set(reqHash, response.body);
 
-        return Response();
+        return nil;
     }
 }
