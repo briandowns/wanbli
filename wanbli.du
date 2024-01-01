@@ -179,7 +179,7 @@ class JsonResponse < BaseResponse {
     init(content, status=200) {
         super.init();
 
-        //this.content = JSON.stringify(content).unwrap();
+        this.content = JSON.stringify(content).unwrap();
         const d = dson.Dson();
         if (["number", "string", "set", "list", "dict"].contains(type(content))) {
             this.content = JSON.stringify(content).unwrap();
@@ -284,6 +284,7 @@ class Wanbli {
         this.routes = {};
         this.middleware = {};
         this.sessionHandler = nil;
+        this.classDecoder = dson.Dson;
     }
 
     // start starts the server.
@@ -339,10 +340,17 @@ class Wanbli {
 
             response = route.callback(request);
 
+            const resType = type(response);
             if (type(response) == "string") {
                 response = Response(response);
+            } else if (["number", "string", "set", "list", "dict"].contains(resType)) {
+                if ((resType != "list") and (resType != "dict")) {
+                    const data = this.classEncoder(response);
+                    response = JsonResponse(data);
+                }
+                
             } else {
-                response = JsonResponse(response);
+
             }
 
             return response;

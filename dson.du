@@ -104,8 +104,26 @@ class Dson {
 
     // stringify receives a class and returns a Result object
     // that unwraps to a JSON encoded string.
-    stringify(klass) {
-        const data = this.processClass(klass);
-        return JSON.stringify(data);
+    // stringify(klass) {
+    //     const data = this.processClass(klass);
+    //     return JSON.stringify(data);
+    // }
+
+    stringify(data) {
+        const dataType = type(data);
+
+        switch (dataType) {
+            case "list": {
+                const res = data.map(def(i) => {
+                    const d = this.processClass(i);
+                    return JSON.stringify(d).unwrap();
+                });
+                return Success(JSON.stringify(res));
+            }
+            default: {
+                const d = this.processClass(data);
+                return JSON.stringify(d);
+            }
+        }
     }
 }

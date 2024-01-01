@@ -6,7 +6,11 @@ from "wanbli.du" import Wanbli, JsonResponse;
 from "middleware/auth.du" import TokenAuth;
 from "middleware/cache.du" import Cache;
 from "logger.du" import Log;
+from "dson.du" import Dson;
 
+class Book {
+    init(var name, var author) {}
+}
 
 @Controller("/api/v1/books")
 class Books {
@@ -52,12 +56,16 @@ class Books {
     const logger = Log();
     logger.info("Starting application");
 
-    var store = {
-        "0": "The Stranger",
-        "1": "The Martian Chronicles",
-        "2": "1984",
-        "3": "A Universe From Nothing"
-    };
+    // var store = {
+    //     "0": "The Stranger",
+    //     "1": "The Martian Chronicles",
+    //     "2": "1984",
+    //     "3": "A Universe From Nothing"
+    // };
+    var store = [
+        Book("The Stranger", "Albert Camus"),
+        Book("The Martian Chronicles", "Ray Bradbury")
+    ];
     
     const wanbli = Wanbli("0.0.0.0", 8080);
 
